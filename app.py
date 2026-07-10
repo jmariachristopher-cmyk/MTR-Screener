@@ -19,7 +19,7 @@ st.set_page_config(page_title="NSE Onm/Decider Screener", layout="wide")
 # ---------------------------------------------------------------------------
 st.sidebar.title("Settings")
 
-default_token = st.secrets.get("UPSTOX_ACCESS_TOKEN", "") if hasattr(st, "secrets") else ""
+try:        default_token = st.secrets.get("UPSTOX_ACCESS_TOKEN", "")    except Exception:        default_token = ""
 access_token = st.sidebar.text_input(
     "Upstox access token",
     value=default_token,
