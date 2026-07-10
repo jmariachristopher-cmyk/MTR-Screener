@@ -162,18 +162,19 @@ for ticker, ik in instrument_keys.items():
     pd_hl = prev_day.get(ticker)
     if not pd_hl:
         rows.append({
-            "Ticker": ticker, "LTP": None, "PrevHigh": None, "PrevLow": None,
+            "Ticker": ticker, "LTP": None, "PrevDate": None, "PrevHigh": None, "PrevLow": None,
             "High Onm": None, "High Decider": None, "Low Onm": None, "Low Decider": None,
             "Signal": "No prev-day data",
         })
         continue
-    prev_high, prev_low = pd_hl
+    prev_high, prev_low, prev_date = pd_hl
     tl = compute_levels(ticker, prev_high, prev_low)
     ltp = ltp_map.get(ik)
     signal = classify(ltp, tl)
     rows.append({
         "Ticker": ticker,
         "LTP": ltp,
+        "PrevDate": prev_date,
         "PrevHigh": prev_high,
         "PrevLow": prev_low,
         "High Onm": tl.high_ladder.onm[0],
@@ -219,7 +220,9 @@ with st.expander("Full ladder (all 10 rungs) for a ticker"):
     pick = st.selectbox("Ticker", list(instrument_keys.keys()))
     pd_hl = prev_day.get(pick)
     if pd_hl:
-        tl = compute_levels(pick, *pd_hl)
+        prev_high, prev_low, prev_date = pd_hl
+        st.caption(f"Based on {prev_date} High/Low: {prev_high:.2f} / {prev_low:.2f}")
+        tl = compute_levels(pick, prev_high, prev_low)
         ladder_df = pd.DataFrame({
             "Rung": list(range(1, 11)),
             "High-side Onm": tl.high_ladder.onm,
