@@ -167,7 +167,7 @@ for ticker, ik in instrument_keys.items():
             "Signal": "No prev-day data",
         })
         continue
-    prev_high, prev_low, prev_date = pd_hl
+    prev_high, prev_low, prev_date = (*pd_hl, None) if len(pd_hl) == 2 else pd_hl
     tl = compute_levels(ticker, prev_high, prev_low)
     ltp = ltp_map.get(ik)
     signal = classify(ltp, tl)
@@ -220,8 +220,9 @@ with st.expander("Full ladder (all 10 rungs) for a ticker"):
     pick = st.selectbox("Ticker", list(instrument_keys.keys()))
     pd_hl = prev_day.get(pick)
     if pd_hl:
-        prev_high, prev_low, prev_date = pd_hl
-        st.caption(f"Based on {prev_date} High/Low: {prev_high:.2f} / {prev_low:.2f}")
+        prev_high, prev_low, prev_date = (*pd_hl, None) if len(pd_hl) == 2 else pd_hl
+        date_note = prev_date if prev_date else "unknown date (upstox_data.py needs updating)"
+        st.caption(f"Based on {date_note} High/Low: {prev_high:.2f} / {prev_low:.2f}")
         tl = compute_levels(pick, prev_high, prev_low)
         ladder_df = pd.DataFrame({
             "Rung": list(range(1, 11)),
