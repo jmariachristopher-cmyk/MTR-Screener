@@ -1,109 +1,125 @@
-# NSE Onm/Decider Breakout Screener (Upstox + Streamlit)
+# NSE Onm/Decider Breakout Screener (Upstox + Streamlit, runs on your own computer)
 
 Compares live NSE prices against yesterday's High/Low-derived "onm" (×0.146)
-and "decider" (×0.236) extension levels and flags breakouts/breakdowns —
-same logic as the original Excel sheet, now live and hosted.
+and "decider" (×0.236) extension levels and flags breakouts/breakdowns.
 
-## What you need before you start
+This version is meant to run **on your own computer** — no GitHub, no cloud
+deployment. One command (or one double-click) and it opens in your browser.
 
-1. An **Upstox trading account** (the API is tied to a real Upstox account).
-2. A **developer app** registered at https://developer.upstox.com/ (or Upstox
-   Developer Apps page from your account). This gives you an API Key
-   (client_id) and API Secret (client_secret).
-3. Confirm your app has **Market Data Feed** access if you want the live LTP
-   to work — some plans/apps need this explicitly enabled and it may carry a
-   fee. The previous-day High/Low (Historical Candle API) does not need this.
-4. A **GitHub account** and a **Streamlit Community Cloud** account
-   (streamlit.io/cloud, free tier is fine) — or you can run it locally.
+## What you need first
 
-## Getting a daily access token (the part that can't be fully automated)
+1. **Python installed.** If you don't have it: go to
+   https://www.python.org/downloads/ → download → during install, **tick
+   "Add Python to PATH"** (Windows) → Install.
+2. **An Upstox trading account + developer app.** See "Getting a daily
+   access token" below — same as before, this part doesn't change.
 
-Upstox access tokens expire every night (~3:30am IST). For a personal
-screener like this, the simplest approach — explicitly supported by Upstox
-for "small utility" apps — is:
+## Running it — the easy way
 
-1. Go to your app on the Upstox Developer Apps page.
-2. Click **Generate** to create a fresh access token.
-3. Copy it and paste it into the app's sidebar each trading day (or into
-   Streamlit secrets if you're the only user — see below).
+**Windows:** double-click **`run_windows.bat`**
+**Mac:** double-click **`run_mac.command`**
+(If Mac blocks it as "unidentified developer": right-click the file → **Open**
+→ confirm "Open" in the dialog that pops up. You only need to do this once.)
 
-If you want a fully unattended login (no daily copy/paste), you'd need to
-implement the full OAuth redirect flow (login dialog → auth code → token
-exchange) with a public redirect URI, which is a bigger project than this
-screener — happy to build that next if you want it.
+Either one will:
+1. Install the few required packages (only takes time the first run)
+2. Launch the app
+3. Open your default browser to the app automatically (usually
+   `http://localhost:8501`)
 
-## Project structure
+**Keep the black terminal window open** while you use the app — closing it
+stops the app. To use it again later, just double-click the same file again.
 
-```
-upstox_screener/
-├── app.py              # Streamlit UI
-├── upstox_data.py       # Upstox API calls (instrument lookup, OHLC, LTP)
-├── levels.py             # onm/decider ladder math (mirrors the Excel formulas)
-├── tickers.csv           # editable list of tickers to screen
-├── requirements.txt
-├── .streamlit/
-│   └── secrets.toml.example
-└── .gitignore
-```
-
-## Run locally
+## Running it — the manual way (if you prefer the terminal)
 
 ```bash
-git clone <your-repo-url>
-cd upstox_screener
+cd path/to/upstox_screener
 pip install -r requirements.txt
 streamlit run app.py
 ```
 
-Paste your access token into the sidebar field when the app opens.
+## Getting a daily access token
 
-## Deploy for free on Streamlit Community Cloud
+Upstox access tokens expire every night (~3:30am IST). Each trading day:
 
-1. Push this folder to a **new GitHub repository**.
-2. Go to https://share.streamlit.io → **New app** → pick your repo/branch →
-   set main file to `app.py` → Deploy.
-3. (Optional, for personal use only) In the app's **Settings → Secrets**,
-   add:
-   ```
-   UPSTOX_ACCESS_TOKEN = "todays-token"
-   ```
-   This pre-fills the sidebar field so you don't have to paste it in the UI,
-   but you'll still need to update it there each day since it expires
-   nightly. **Never commit a real token to the GitHub repo itself** —
-   only Streamlit's Secrets manager, which isn't part of the repo.
+1. Go to your app on the **Upstox Developer Apps** page (developer.upstox.com,
+   or via your Upstox account's API/Apps section).
+   - First time only: click **Create new app**, give it any name, and for
+     **Redirect URI** put something like `https://127.0.0.1` (required field,
+     but not actually used for the flow below).
+2. Click **Generate** (or "Generate Access Token") on your app's page.
+3. Log into Upstox when prompted, copy the token shown.
+4. Paste it into the app's sidebar (in your browser) each time you open it.
+
+**Note on live price (LTP):** if the LTP column comes back empty or errors,
+check your app's entitlements on the Developer Apps page — Upstox requires
+"Market Data Feed" access for live quotes on some plans, separate from the
+Historical Candle API (which the previous-day High/Low uses and needs no
+extra entitlement).
+
+## Files in this folder
+
+```
+app.py               - the Streamlit app itself
+upstox_data.py        - talks to Upstox: instrument lookup, prev-day OHLC, live LTP
+levels.py              - onm/decider ladder math
+tickers.csv            - editable list of tickers to screen
+requirements.txt
+run_windows.bat         - double-click launcher (Windows)
+run_mac.command          - double-click launcher (Mac)
+```
 
 ## Editing the ticker list
 
-- Quick/temporary: use the "Edit ticker list" expander in the app.
-- Permanent: edit `tickers.csv` in the repo (one ticker per line, matching
-  the exact NSE trading symbol) and redeploy/push. `NIFTY` and `BANKNIFTY`
-  are handled specially as indices; everything else is looked up against
-  Upstox's NSE instrument master by trading symbol.
+Open `tickers.csv` in any text editor (Notepad, TextEdit) or the app's own
+"Edit ticker list" panel. One ticker per line, matching the exact NSE trading
+symbol. `NIFTY` and `BANKNIFTY` are handled specially as indices.
 
 ## How the signal works
 
 For each ticker, using yesterday's High/Low:
-
 - `diff = High − Low`
-- `onm level = High + diff×0.146` (and mirrored below Low)
-- `decider level = High + diff×0.236` (and mirrored below Low)
+- `onm level = High + diff×0.146` (mirrored below Low)
+- `decider level = High + diff×0.236` (mirrored below Low)
 
 The Screener flags:
 - **BREAKOUT above Decider** — live price above the decider level over High
-- **Above Onm (watch)** — live price above the onm level but below decider
+- **Above Onm (watch)** — above onm but below decider
 - **BREAKDOWN below Decider** — live price below the decider level under Low
-- **Below Onm (watch)** — live price below the onm level but above decider
+- **Below Onm (watch)** — below onm but above decider
 - **Neutral / inside range** — otherwise
 
-The "Full ladder" expander shows all 10 extension rungs on each side, same
-as the extended columns in the original Excel sheet, in case you use those
-further targets too.
+A **PrevDate** column shows the exact calendar date each row's High/Low came
+from, so you can verify at a glance it's using yesterday's session and not an
+older one.
+
+## Troubleshooting
+
+- **A terminal/black window flashes and closes immediately:** Python likely
+  isn't installed, or wasn't added to PATH. Reinstall Python and make sure
+  that checkbox is ticked.
+- **"streamlit: command not found":** the pip install step didn't finish or
+  failed silently — run the manual commands above in a terminal so you can
+  see the actual error message, and share it if you're stuck.
+- **PrevDate shows blank/None or the wrong date:** this means the request to
+  Upstox didn't return data as expected — check your access token hasn't
+  expired, and that the ticker/instrument key resolved correctly (see the
+  "Couldn't resolve an instrument key for..." warning if one appears).
+- **LTP column blank:** almost always the Market Data Feed entitlement issue
+  mentioned above.
+
+## Later: hosting this publicly (optional)
+
+Everything here also works as a GitHub + Streamlit Community Cloud
+deployment if you want a shareable public link later — the same `app.py`,
+`upstox_data.py`, `levels.py`, `tickers.csv`, and `requirements.txt` work
+as-is. Happy to walk through that again once the local version is confirmed
+working, since debugging locally (where you can see real error messages
+directly) is a much faster way to shake out any remaining issues first.
 
 ## Caveats
 
 - This is a **technical price-level screener, not investment advice**.
 - Upstox's public instrument master and APIs occasionally change shape or
-  rate-limit; if a ticker shows "No prev-day data" or a fetch error, hit
-  Refresh, or check Upstox's API status page.
-- "Previous day" always means the last **complete** daily candle — if you
-  load the app mid-session, that's the prior trading day as intended.
+  rate-limit; if a ticker shows "No prev-day data," hit **Refresh now** in
+  the sidebar.
