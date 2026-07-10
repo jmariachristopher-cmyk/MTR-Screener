@@ -77,11 +77,15 @@ def resolve_instrument_key(ticker: str, symbol_lookup: dict) -> str | None:
 def get_prev_day_high_low(instrument_key: str, access_token: str) -> tuple[float, float] | None:
     """Return (prev_high, prev_low) using the last COMPLETE daily candle.
 
-    Requests a 7-day window ending today to comfortably cover weekends/holidays,
-    then takes the second-to-last candle (the last one may be today's in-progress
-    session, or absent outside market hours -- either way, index -2 from the end
-    of a >=2-length list is the most recently completed full day at any time of day
-    after the market's first day in the window has closed).
+    Upstox's Historical Candle API only ever returns CLOSED trading days -- it
+    does not include today's still-forming session, even mid-market-hours.
+    So the last candle in the (oldest->newest sorted) list is normally already
+    "yesterday" (the most recent completed day) and should be used directly.
+
+    The one exception: if this happens to be called after Upstox has posted
+    today's candle as complete (e.g. late evening, after end-of-day
+    processing), the last candle's date will equal today's date -- in that
+    case we step back one further to the previous entry instead.
     """
     to_date = datetime.now().strftime("%Y-%m-%d")
     from_date = (datetime.now() - timedelta(days=10)).strftime("%Y-%m-%d")
@@ -94,9 +98,20 @@ def get_prev_day_high_low(instrument_key: str, access_token: str) -> tuple[float
         return None
     # Upstox returns candles newest-first: [timestamp, open, high, low, close, volume, oi]
     candles_sorted = sorted(candles, key=lambda c: c[0])  # oldest -> newest
-    if len(candles_sorted) < 2:
-        return None
-    prev_candle = candles_sorted[-2]
+
+    today_str = datetime.now().strftime("%Y-%m-%d")
+    last_candle_date = candles_sorted[-1][0][:10]
+
+    if last_candle_date == today_str:
+        # Today's candle is unexpectedly present and complete -- the true
+        # "previous day" is one further back.
+        if len(candles_sorted) < 2:
+            return None
+        prev_candle = candles_sorted[-2]
+    else:
+        # Normal case: the last candle IS the most recent completed day.
+        prev_candle = candles_sorted[-1]
+
     prev_high, prev_low = prev_candle[2], prev_candle[3]
     return prev_high, prev_low
 
