@@ -109,7 +109,6 @@ def get_prev_day_high_low(instrument_key: str, access_token: str) -> tuple[float
     return prev_high, prev_low, prev_date
 
 
-
 def get_ltp_batch(instrument_keys: Iterable[str], access_token: str) -> dict:
     """Return {instrument_key: last_traded_price} for up to 500 instrument keys."""
     keys = [k for k in instrument_keys if k]
